@@ -1,49 +1,80 @@
-// Ждём, пока страница загрузится
 window.addEventListener('DOMContentLoaded', () => {
-  // Берём элементы из разметки
   const circle = document.getElementById('circle');
   const gameArea = document.getElementById('game-area');
   const scoreLabel = document.getElementById('score');
 
-  // Тут будет храниться количество очков
   let score = 0;
+  let timeLeft = 30;
+  let isGameActive = false;
+  let timerInterval;
 
-  // Обновляем текст "Очки: ..."
   const updateScoreLabel = () => {
     scoreLabel.textContent = `Очки: ${score}`;
   };
 
-  // Перемещаем круг в случайное место внутри зоны
   const moveCircleToRandomPosition = () => {
     const areaWidth = gameArea.clientWidth;
     const areaHeight = gameArea.clientHeight;
-
     const circleWidth = circle.offsetWidth;
     const circleHeight = circle.offsetHeight;
 
-    // чтобы круг не вылезал за края
     const maxLeft = Math.max(areaWidth - circleWidth, 0);
     const maxTop = Math.max(areaHeight - circleHeight, 0);
 
-    // случайные координаты
     const nextLeft = Math.random() * maxLeft;
     const nextTop = Math.random() * maxTop;
 
-    // применяем
     circle.style.left = `${nextLeft}px`;
     circle.style.top = `${nextTop}px`;
   };
 
-  // Что делаем при клике по кругу
   const handleCircleClick = () => {
-    score += 1;               // +1 очко
-    updateScoreLabel();       // обновили надпись
-    moveCircleToRandomPosition(); // перепрыгнули
+    if (!isGameActive) return;
+    score += 1;
+    updateScoreLabel();
+    moveCircleToRandomPosition();
   };
 
-  // Вешаем обработчик
-  circle.addEventListener('click', handleCircleClick);
+  const startGame = () => {
+    score = 0;
+    timeLeft = 30;
+    isGameActive = true;
+    updateScoreLabel();
+    moveCircleToRandomPosition();
 
-  // Поставим круг в случайное место при первом запуске
+    scoreLabel.textContent = `Очки: ${score} | Время: ${timeLeft}`;
+
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      scoreLabel.textContent = `Очки: ${score} | Время: ${timeLeft}`;
+      if (timeLeft <= 0) endGame();
+    }, 1000);
+  };
+
+  const endGame = () => {
+    isGameActive = false;
+    clearInterval(timerInterval);
+    circle.style.display = 'none';
+    scoreLabel.innerHTML = `⏰ Время вышло!<br>Твой результат: ${score} очков`;
+    const restartBtn = document.createElement('button');
+    restartBtn.textContent = 'Играть снова';
+    restartBtn.style.marginTop = '12px';
+    restartBtn.style.padding = '10px 18px';
+    restartBtn.style.border = 'none';
+    restartBtn.style.borderRadius = '10px';
+    restartBtn.style.background = '#f97316';
+    restartBtn.style.color = '#fff';
+    restartBtn.style.cursor = 'pointer';
+    restartBtn.style.fontSize = '16px';
+    restartBtn.addEventListener('click', () => {
+      restartBtn.remove();
+      circle.style.display = 'block';
+      startGame();
+    });
+    scoreLabel.appendChild(restartBtn);
+  };
+
+  circle.addEventListener('click', handleCircleClick);
   moveCircleToRandomPosition();
+  startGame();
 });
