@@ -8,7 +8,7 @@
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #e7f0f4;
+      background: radial-gradient(circle at top, #d9e9ff 0%, #e7f0f4 45%, #e7f0f4 100%);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -50,25 +50,46 @@
     .cell {
       width: 100%;
       aspect-ratio: 1 / 1;
-      border-radius: 10px;
+      border-radius: 14px;
       cursor: pointer;
-      transition: transform 0.15s;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 0;
+      transition: transform 0.12s;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+    }
+
+    /* блик */
+    .cell::after {
+      content: "";
+      position: absolute;
+      inset: 10% 15%;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.45);
+      filter: blur(2px);
     }
 
     .cell.selected {
-      outline: 3px solid #ffb347;
-      transform: scale(1.03);
+      outline: 3px solid rgba(255, 191, 120, 0.9);
+      transform: scale(1.04);
     }
 
-    .type-0 { background: #ff7f7f; }
-    .type-1 { background: #7fb3ff; }
-    .type-2 { background: #ffd27f; }
-    .type-3 { background: #8ef5c0; }
-    .type-4 { background: #c98fff; }
+    /* кристальные цвета */
+    .type-0 { background: linear-gradient(160deg, #ff9090 0%, #ff5454 100%); }
+    .type-1 { background: linear-gradient(160deg, #8cc7ff 0%, #4f9dff 100%); }
+    .type-2 { background: linear-gradient(160deg, #ffe08a 0%, #ffb347 100%); }
+    .type-3 { background: linear-gradient(160deg, #9dffd7 0%, #46d39e 100%); }
+    .type-4 { background: linear-gradient(160deg, #ddc2ff 0%, #b27dff 100%); }
+
+    /* анимация исчезновения */
+    @keyframes pop-out {
+      0%   { transform: scale(1);   opacity: 1; }
+      40%  { transform: scale(1.15); opacity: 1; }
+      100% { transform: scale(0);   opacity: 0; }
+    }
+
+    .disappearing {
+      animation: pop-out 0.3s ease-out forwards;
+    }
 
     button#restart {
       margin-top: 14px;
@@ -96,7 +117,8 @@
 
   <script>
     const BOARD_SIZE = 8;
-    const TYPES = 5; // сколько разных фишек
+    const TYPES = 5;
+
     const boardEl = document.getElementById('board');
     const scoreEl = document.getElementById('score');
     const movesEl = document.getElementById('moves');
@@ -126,6 +148,7 @@
       }
     }
 
+    // рисуем поле
     function renderBoard() {
       boardEl.innerHTML = '';
       for (let row = 0; row < BOARD_SIZE; row++) {
@@ -145,6 +168,7 @@
       movesEl.textContent = moves;
     }
 
+    // клик по ячейке
     function onCellClick(e) {
       const row = parseInt(e.currentTarget.dataset.row);
       const col = parseInt(e.currentTarget.dataset.col);
@@ -152,19 +176,18 @@
       if (!selected) {
         selected = {row, col};
       } else {
-        // если выбрали ту же — снять выбор
         if (selected.row === row && selected.col === col) {
+          // сняли выделение
           selected = null;
         } else {
-          // проверяем, соседние ли
           const isNeighbor =
             (Math.abs(selected.row - row) === 1 && selected.col === col) ||
             (Math.abs(selected.col - col) === 1 && selected.row === row);
+
           if (isNeighbor) {
             swapAndCheck(selected, {row, col});
             selected = null;
           } else {
-            // выбрать новую
             selected = {row, col};
           }
         }
@@ -172,15 +195,14 @@
       renderBoard();
     }
 
+    // меняем две фишки местами и проверяем
     function swapAndCheck(a, b) {
-      // меняем
       swapCells(a, b);
       const matches = findMatches();
       if (matches.length === 0) {
-        // откат, если хода нет
+        // нет хода — откат
         swapCells(a, b);
       } else {
-        // расходуем ход
         moves--;
         resolveMatches(matches);
       }
@@ -192,7 +214,7 @@
       board[b.row][b.col] = tmp;
     }
 
-    // ищем все комбинации 3+
+    // ищем все совпадения 3+
     function findMatches() {
       const matches = [];
 
@@ -205,7 +227,7 @@
           } else {
             if (streak >= 3) {
               for (let k = 0; k < streak; k++) {
-                matches.push({row, col: col-1-k});
+                matches.push({row, col: col - 1 - k});
               }
             }
             streak = 1;
@@ -222,7 +244,7 @@
           } else {
             if (streak >= 3) {
               for (let k = 0; k < streak; k++) {
-                matches.push({row: row-1-k, col});
+                matches.push({row: row - 1 - k, col});
               }
             }
             streak = 1;
@@ -230,48 +252,67 @@
         }
       }
 
-      // уберём дубли
+      // убираем дубли
       const uniq = [];
-      const keySet = new Set();
+      const seen = new Set();
       for (const m of matches) {
         const key = m.row + '-' + m.col;
-        if (!keySet.has(key)) {
-          keySet.add(key);
+        if (!seen.has(key)) {
+          seen.add(key);
           uniq.push(m);
         }
       }
+
       return uniq;
     }
 
-    function resolveMatches(matches) {
-      // удаляем совпавшие
+    // анимация: вешаем класс и ждём
+    function animateMatches(matches, done) {
       matches.forEach(({row, col}) => {
-        board[row][col] = null;
+        const el = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+        if (el) {
+          el.classList.add('disappearing');
+        }
       });
-      // начисляем очки
-      score += matches.length * 10;
 
-      // опускаем вниз
-      dropCells();
-      // заполняем сверху
-      fillBoard();
-
-      // после заполнения могут появиться новые совпадения — прогоняем ещё раз
-      const newMatches = findMatches();
-      if (newMatches.length > 0) {
-        // небольшая задержка для “анимации”
-        setTimeout(() => resolveMatches(newMatches), 150);
-      } else {
-        renderBoard();
-        checkGameOver();
-      }
+      setTimeout(() => {
+        done();
+      }, 300); // должно совпадать с @keyframes
     }
 
+    // удаление + падение + цепочки
+    function resolveMatches(matches) {
+      // 1. сначала показываем анимацию
+      animateMatches(matches, () => {
+        // 2. после анимации реально удаляем
+        matches.forEach(({row, col}) => {
+          board[row][col] = null;
+        });
+
+        // 3. очки
+        score += matches.length * 10;
+
+        // 4. опускаем
+        dropCells();
+        // 5. заполняем
+        fillBoard();
+
+        // 6. проверяем дальнейшие совпадения
+        const newMatches = findMatches();
+        if (newMatches.length > 0) {
+          setTimeout(() => resolveMatches(newMatches), 120);
+        } else {
+          renderBoard();
+          checkGameOver();
+        }
+      });
+    }
+
+    // всё что выше — падает вниз
     function dropCells() {
       for (let col = 0; col < BOARD_SIZE; col++) {
         for (let row = BOARD_SIZE - 1; row >= 0; row--) {
           if (board[row][col] === null) {
-            // ищем выше первый не-null
             for (let r = row - 1; r >= 0; r--) {
               if (board[r][col] !== null) {
                 board[row][col] = board[r][col];
@@ -284,6 +325,7 @@
       }
     }
 
+    // пустые сверху — заполняем новыми
     function fillBoard() {
       for (let row = 0; row < BOARD_SIZE; row++) {
         for (let col = 0; col < BOARD_SIZE; col++) {
