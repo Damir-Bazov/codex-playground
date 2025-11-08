@@ -2,85 +2,314 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Codex Playground — Click Game</title>
+  <title>Match-3 — Путь энергии</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    * {
-      box-sizing: border-box;
-    }
     body {
       margin: 0;
-      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #e7f0f4;
       display: flex;
       justify-content: center;
       align-items: center;
-      background: #e2e8f0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
     }
-    .card {
-      background: #ffffff;
-      width: min(480px, 100%);
-      border-radius: 24px;
-      padding: 32px 32px 40px;
-      box-shadow: 0 24px 50px rgba(15, 23, 42, 0.12);
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      align-items: center;
-      text-align: center;
-    }
-    h1 {
-      font-size: 28px;
-      margin: 0;
-    }
-    p {
-      margin: 0;
-      color: #475569;
-    }
-    #score {
-      font-weight: 700;
-    }
-    #game-area {
-      width: 280px;
-      height: 180px;
+
+    .game-wrapper {
+      background: #fff;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.08);
       border-radius: 20px;
-      background: linear-gradient(140deg, #bfdbfe 0%, #f9a8d4 90%);
-      position: relative;
-      overflow: hidden;
+      padding: 20px;
+      width: 360px;
     }
-    #circle {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: #f97316;
-      position: absolute;
-      top: 0;
-      left: 0;
+
+    h1 {
+      font-size: 20px;
+      text-align: center;
+      margin: 0 0 10px;
+    }
+
+    .top-panel {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+
+    #board {
+      width: 320px;
+      height: 320px;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      gap: 4px;
+      margin: 0 auto;
+      user-select: none;
+    }
+
+    .cell {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 10px;
       cursor: pointer;
-      transition: transform 0.08s;
+      transition: transform 0.15s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 0;
     }
-    #circle:active {
-      transform: scale(0.9);
+
+    .cell.selected {
+      outline: 3px solid #ffb347;
+      transform: scale(1.03);
     }
-    small {
-      color: #94a3b8;
-      font-size: 13px;
+
+    .type-0 { background: #ff7f7f; }
+    .type-1 { background: #7fb3ff; }
+    .type-2 { background: #ffd27f; }
+    .type-3 { background: #8ef5c0; }
+    .type-4 { background: #c98fff; }
+
+    button#restart {
+      margin-top: 14px;
+      width: 100%;
+      padding: 10px 0;
+      border: none;
+      border-radius: 10px;
+      background: #ff8a3d;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Мой первый проект с Git и Codex</h1>
-    <p>Страница лежит в репозитории и будет пушиться на GitHub.</p>
-    <div id="score">Очки: 0</div>
-
-    <div id="game-area">
-      <div id="circle" aria-label="кликни по кругу"></div>
+  <div class="game-wrapper">
+    <h1>Энергия. Уровень 1</h1>
+    <div class="top-panel">
+      <div>Очки: <span id="score">0</span></div>
+      <div>Ходы: <span id="moves">20</span></div>
     </div>
-
-    <small>Кликай по кругу — он будет прыгать 👇</small>
+    <div id="board"></div>
+    <button id="restart">Играть заново</button>
   </div>
 
-  <script src="game.js"></script>
+  <script>
+    const BOARD_SIZE = 8;
+    const TYPES = 5; // сколько разных фишек
+    const boardEl = document.getElementById('board');
+    const scoreEl = document.getElementById('score');
+    const movesEl = document.getElementById('moves');
+    const restartBtn = document.getElementById('restart');
+
+    let board = [];
+    let selected = null;
+    let score = 0;
+    let moves = 20;
+
+    // создаём поле без стартовых совпадений
+    function createBoard() {
+      board = [];
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        const line = [];
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          let type;
+          do {
+            type = Math.floor(Math.random() * TYPES);
+          } while (
+            (col >= 2 && line[col-1] === type && line[col-2] === type) ||
+            (row >= 2 && board[row-1][col] === type && board[row-2][col] === type)
+          );
+          line.push(type);
+        }
+        board.push(line);
+      }
+    }
+
+    function renderBoard() {
+      boardEl.innerHTML = '';
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          const div = document.createElement('div');
+          div.className = 'cell type-' + board[row][col];
+          div.dataset.row = row;
+          div.dataset.col = col;
+          if (selected && selected.row === row && selected.col === col) {
+            div.classList.add('selected');
+          }
+          div.addEventListener('click', onCellClick);
+          boardEl.appendChild(div);
+        }
+      }
+      scoreEl.textContent = score;
+      movesEl.textContent = moves;
+    }
+
+    function onCellClick(e) {
+      const row = parseInt(e.currentTarget.dataset.row);
+      const col = parseInt(e.currentTarget.dataset.col);
+
+      if (!selected) {
+        selected = {row, col};
+      } else {
+        // если выбрали ту же — снять выбор
+        if (selected.row === row && selected.col === col) {
+          selected = null;
+        } else {
+          // проверяем, соседние ли
+          const isNeighbor =
+            (Math.abs(selected.row - row) === 1 && selected.col === col) ||
+            (Math.abs(selected.col - col) === 1 && selected.row === row);
+          if (isNeighbor) {
+            swapAndCheck(selected, {row, col});
+            selected = null;
+          } else {
+            // выбрать новую
+            selected = {row, col};
+          }
+        }
+      }
+      renderBoard();
+    }
+
+    function swapAndCheck(a, b) {
+      // меняем
+      swapCells(a, b);
+      const matches = findMatches();
+      if (matches.length === 0) {
+        // откат, если хода нет
+        swapCells(a, b);
+      } else {
+        // расходуем ход
+        moves--;
+        resolveMatches(matches);
+      }
+    }
+
+    function swapCells(a, b) {
+      const tmp = board[a.row][a.col];
+      board[a.row][a.col] = board[b.row][b.col];
+      board[b.row][b.col] = tmp;
+    }
+
+    // ищем все комбинации 3+
+    function findMatches() {
+      const matches = [];
+
+      // по строкам
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        let streak = 1;
+        for (let col = 1; col <= BOARD_SIZE; col++) {
+          if (col < BOARD_SIZE && board[row][col] === board[row][col-1]) {
+            streak++;
+          } else {
+            if (streak >= 3) {
+              for (let k = 0; k < streak; k++) {
+                matches.push({row, col: col-1-k});
+              }
+            }
+            streak = 1;
+          }
+        }
+      }
+
+      // по колонкам
+      for (let col = 0; col < BOARD_SIZE; col++) {
+        let streak = 1;
+        for (let row = 1; row <= BOARD_SIZE; row++) {
+          if (row < BOARD_SIZE && board[row][col] === board[row-1][col]) {
+            streak++;
+          } else {
+            if (streak >= 3) {
+              for (let k = 0; k < streak; k++) {
+                matches.push({row: row-1-k, col});
+              }
+            }
+            streak = 1;
+          }
+        }
+      }
+
+      // уберём дубли
+      const uniq = [];
+      const keySet = new Set();
+      for (const m of matches) {
+        const key = m.row + '-' + m.col;
+        if (!keySet.has(key)) {
+          keySet.add(key);
+          uniq.push(m);
+        }
+      }
+      return uniq;
+    }
+
+    function resolveMatches(matches) {
+      // удаляем совпавшие
+      matches.forEach(({row, col}) => {
+        board[row][col] = null;
+      });
+      // начисляем очки
+      score += matches.length * 10;
+
+      // опускаем вниз
+      dropCells();
+      // заполняем сверху
+      fillBoard();
+
+      // после заполнения могут появиться новые совпадения — прогоняем ещё раз
+      const newMatches = findMatches();
+      if (newMatches.length > 0) {
+        // небольшая задержка для “анимации”
+        setTimeout(() => resolveMatches(newMatches), 150);
+      } else {
+        renderBoard();
+        checkGameOver();
+      }
+    }
+
+    function dropCells() {
+      for (let col = 0; col < BOARD_SIZE; col++) {
+        for (let row = BOARD_SIZE - 1; row >= 0; row--) {
+          if (board[row][col] === null) {
+            // ищем выше первый не-null
+            for (let r = row - 1; r >= 0; r--) {
+              if (board[r][col] !== null) {
+                board[row][col] = board[r][col];
+                board[r][col] = null;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function fillBoard() {
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          if (board[row][col] === null) {
+            board[row][col] = Math.floor(Math.random() * TYPES);
+          }
+        }
+      }
+    }
+
+    function checkGameOver() {
+      if (moves <= 0) {
+        alert('Ходы закончились! Твои очки: ' + score);
+      }
+    }
+
+    restartBtn.addEventListener('click', () => {
+      score = 0;
+      moves = 20;
+      createBoard();
+      renderBoard();
+    });
+
+    // старт
+    createBoard();
+    renderBoard();
+  </script>
 </body>
 </html>
